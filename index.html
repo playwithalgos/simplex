@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+
+<body>
+    <textarea id="input" rows="30" cols="60"></textarea>
+    <textarea id="output" rows="30" cols="60"></textarea>
+    <button onclick="init()">Init</button>
+    <button onclick="step()">Step</button>
+
+    <script>
+        class Tableau {
+            constructor(v, c, A, b) {
+                this.v = v;
+                this.c = c;
+                this.A = A;
+                this.b = b;
+
+                const N = new Set([...Object.keys(c)]);
+
+                for (const vB in A)
+                    for (const vN in A[vB])
+                        N.add(vN);
+
+                const B = new Set([Object.keys(A)]);
+
+                for (const vB in A)
+                    for (const vN of N) {
+                        if (A[vB][vN] == undefined)
+                            A[vB][vN] = 0;
+                    }
+
+                for (const vN of N) if (c[vN] == undefined) v[vN] = 0;
+
+            }
+
+            toString() {
+                let s = "max " + ((this.v == 0) ? "" : (this.v + " + ")) + mapToStr(this.c);
+                for (let v in this.b) {
+                    s += "\n" + v + " = " + this.b[v] + " + " + mapToStr(this.A[v]);
+                }
+                s = s.replaceAll(" + -", " - ");
+                return s;
+            }
+        }
+
+        function mapToStr(c) {
+            const A = [];
+            for (let v in c) if (c[v] != 0) {
+                A.push((
+                    (c[v] == 1) ? "" : (c[v] == -1) ? "-" : c[v]) + v);
+            }
+            return A.join(" + ");
+        }
+
+        function lineToMap(line) {
+            const terms = line.split("+");
+            const c = {};
+
+            function splitTerm(term) {
+                let i;
+                for (i = 0; i < term.length; i++) {
+                    if (["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "-", "+"].indexOf(term[i]) < 0) {
+                        break;
+                    }
+                }
+                let numberStr = term.substr(0, i - 1);
+                if (numberStr == "")
+                    numberStr = "1";
+                return [parseFloat(numberStr), term.substr(i).trim()];
+
+            }
+
+
+            for (const term of terms) {
+                const [val, varName] = splitTerm(term);
+                c[varName] = val;
+            }
+            return c;
+        }
+
+        function strToTableau(strCanonicalForm) {
+            const lines = strCanonicalForm.split("\n");
+            const objStr = lines.shift();
+            const obj = lineToMap(objStr.substr(4));
+
+            const A = {};
+            const b = {};
+            let i = 1;
+            for (const line of lines) if (line.trim() != "") {
+                const D = line.split("<=");
+                const coeffs = lineToMap(D[0]);
+
+                for (const v in coeffs)
+                    coeffs[v] = - coeffs[v];
+
+                const bc = parseFloat(D[1]);
+                A["y" + i] = coeffs;
+                b["y" + i] = bc;
+                i++;
+            }
+
+            return new Tableau(0, obj, A, b);
+        }
+
+
+        let T;
+
+        function init() {
+            const initialTableau = strToTableau(input.value);
+            T = initialTableau;
+            output.value = initialTableau.toString();
+        }
+
+        init();
+
+        function step() {
+            const { j, i } = blandRule(T);
+            console.log(j, i)
+            T = applyPivot(T, j, i);
+            output.value = output.value + "\n\n" + j + " is entering in the base \n" + i + " is leaving the base\n\n" + T.toString();
+        }
+
+
+
+        function blandRule(T) {
+            const getJ = () => {
+                for (let v in T.c) {
+                    if (T.c[v] > 0)
+                        return v;
+                }
+                return undefined;
+            }
+
+            const j = getJ();
+            if (j == undefined)
+                throw "max";
+
+            const getI = () => {
+                for (let v in T.A) {
+                    if (T.A[v][j] < 0)
+                        return v;
+                }
+                return undefined;
+            }
+
+            const i = getI();
+
+            if (i == undefined)
+                throw "unbounded";
+
+            return { i, j };
+        }
+
+
+
+        function applyPivot(T, j0, i0) {
+
+            const v = T.v - T.b[i0] * T.c[j0] / T.A[i0][j0];
+            const c = {};
+
+            for (const j in T.c) if (j != j0) {
+                c[j] = T.c[j] - T.c[j0] * T.A[i0][j] / T.A[i0][j0];
+            }
+            c[i0] = T.c[j0] / T.A[i0][j0];
+            const b = {};
+
+            for (const i in T.b) if (i != i0) {
+                b[i] = T.b[i] - T.A[i][j0] * T.b[i0] / T.A[i0][j0];
+            }
+
+            b[j0] = -T.b[i0] / T.A[i0][j0];
+
+            const A = {};
+
+            for (const i in T.b) if (i != i0) {
+                A[i] = {};
+                for (const j in T.c) if (j != j0) {
+                    A[i][j] = -T.A[i][j] + T.A[i][j0] * T.A[i0][j] / T.A[i0][j0];
+                }
+                A[i][i0] = T.A[i][j0] / T.A[i0][j0];
+            }
+
+            A[j0] = {};
+            A[j0][i0] = 1 / T.A[i0][j0];
+
+            for (const j in T.c) if (j != j0) {
+                A[j0][j] = -T.A[i0][j] / T.A[i0][j0];
+            }
+
+            return new Tableau(v, c, A, b);
+        }
+
+
+    </script>
