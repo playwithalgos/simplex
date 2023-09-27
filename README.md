@@ -14,7 +14,7 @@ A pedagogical tool for running the simplex algorithm.
 
 - you can use (almost) any names for variable as long it starts with a letter ;)
 
--    ````
+  ````
    max 2chocolate + 3milk
     chocolate <= 1
     2chocolate + 6milk <= 1
