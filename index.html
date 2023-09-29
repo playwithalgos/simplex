@@ -136,6 +136,9 @@
                 if (variableName == "")
                     throw "a variable name is missing";
 
+                if (variableName.search(/^[a-zA-Z]?[a-zA-Z0-9]*$/) < 0)
+                    throw "Problem with " + variableName + ": a variable name should start with a letter and can be followed by letters and/or digits";
+
                 return [coeff, variableName];
 
             }
