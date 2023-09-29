@@ -2,18 +2,32 @@
 <meta charset="utf-8">
 
 <body>
-    <textarea id="input" rows="10" cols="40"></textarea>
-    <button onclick="compute()">Compute</button>
+    Please write a linear program in canonical form:<br />
+    <textarea oninput="compute()" id="input" rows="10" cols="40"></textarea>
     <div id="error"></div>
-    <textarea id="output" rows="50" cols="80"></textarea>
+    <textarea id="output" readonly rows="50" cols="80"></textarea>
 
     <style>
         * {
             vertical-align: top;
+            background-color: black;
+            color: white;
         }
 
         #error {
             color: red;
+        }
+
+        #output {
+            border: 0px;
+        }
+
+        textarea {
+            color: greenyellow;
+        }
+
+        body {
+            background-color: black;
         }
     </style>
 
@@ -108,10 +122,19 @@
                 if (numberStr == "-")
                     numberStr = "-1";
 
-                const coeff = parseFloat(numberStr);
-                const variableName = termStr.substr(i).trimLeft();
+                const coeff = parseFloatStrong(numberStr);
+                if (coeff == undefined)
+                    throw "the coefficient " + numberStr + " is not correct";
+                const variablePart = termStr.substr(i).trimLeft();
+
+                const variableName = (variablePart.startsWith("*")) ? variablePart.substr(1).trimLeft() : variablePart;
+
+
                 if (variableName.indexOf(" ") >= 0)
                     throw "there are misplaced spaces in the term " + termStr;
+
+                if (variableName == "")
+                    throw "a variable name is missing";
 
                 return [coeff, variableName];
 
@@ -149,8 +172,8 @@
                 for (const v in coeffs)
                     coeffs[v] = - coeffs[v];
 
-                const bc = parseFloat(D[1]);
-                if (isNaN(bc))
+                const bc = parseFloatStrong(D[1].trim());
+                if (bc == undefined)
                     throw `The value in 'linear function <= value' should be a number. Sorry but ${D[1]} is not a number`;
                 A["z" + i] = coeffs;
                 b["z" + i] = bc;
@@ -161,9 +184,19 @@
         }
 
 
+
+        function parseFloatStrong(str) {
+            const re = new RegExp(/^[+-]?\d+(\.\d+)?$/);
+            if (str.search(re) == -1)
+                return undefined;
+            const bc = parseFloat(str);
+            return bc;
+        }
+
         let T;
 
         function init() {
+            output.value = "";
             const initialTableau = strToTableau(input.value);
             T = initialTableau;
             output.value = initialTableau.toString();
