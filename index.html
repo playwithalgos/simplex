@@ -113,10 +113,10 @@
 
                 let i;
                 for (i = 0; i < termStr.length; i++)
-                    if (["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "-", "+"].indexOf(termStr[i]) < 0)
+                    if (["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "-", " ", "+"].indexOf(termStr[i]) < 0)
                         break;
 
-                let numberStr = termStr.substr(0, i);
+                let numberStr = termStr.substr(0, i).trim();
                 if (numberStr == "")
                     numberStr = "1";
                 if (numberStr == "-")
@@ -143,8 +143,14 @@
             for (const termStr of termsStr)
                 if (termStr.trim() != "") {
                     const [val, varName] = splitTerm(termStr);
+
+                    if (c[varName] != undefined)
+                        throw "variable " + varName + " appears several times";
                     c[varName] = val;
                 }
+                else
+                    throw " a term like 2x, -3y or something is missing";
+
             return c;
         }
 
@@ -186,9 +192,11 @@
 
 
         function parseFloatStrong(str) {
-            const re = new RegExp(/^[+-]?\d+(\.\d+)?$/);
+            str = str.trim();
+            const re = new RegExp(/^[+-]?\s*\d+(\.\d+)?$/);
             if (str.search(re) == -1)
                 return undefined;
+            str = str.replaceAll(" ", "").trim();
             const bc = parseFloat(str);
             return bc;
         }
