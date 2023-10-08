@@ -4,14 +4,16 @@
 <body>
     Please write a linear program in canonical form:<br />
     <textarea oninput="compute()" id="input" rows="10" cols="40"></textarea>
+    <input id="bland" type="checkbox" oninput="compute()"></input>
+    <label for="bland">Bland's rule</label>
     <div id="error"></div>
-    <textarea id="output" readonly rows="50" cols="80"></textarea>
+    <div id="output"></div>
 
     <style>
-        * {
+        body {
             vertical-align: top;
             background-color: black;
-            color: white;
+            color: lightyellow;
         }
 
         #error {
@@ -23,16 +25,48 @@
         }
 
         textarea {
+            background-color: black;
             color: greenyellow;
         }
 
         body {
             background-color: black;
         }
+
+        .max {
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        .nonbasicvariable {
+            color: lightgray;
+        }
+
+        .basicvariable {
+            color: lightskyblue;
+        }
+
+        .pivot {
+            margin: 8px;
+            padding-left: 16px;
+        }
+
+        .obj {
+            background-color: darkgreen;
+            padding: 2px;
+        }
+
+        .tableau {
+            margin: 8px;
+            padding: 8px;
+            background-color: rgb(60, 60, 60);
+            display: inline-block;
+            border-radius: 8px;
+        }
     </style>
 
     <script>
-
+        const SLACKVARIABLEPREFIX = "ε";
         /**
          * @description represents a Tableau in the simplex algorithm
          **/
@@ -71,14 +105,40 @@
             }
 
             toString() {
-                let s = "max " + ((this.v == 0) ? "" : (this.v + " + ")) + mapToStr(this.c);
+                let s = "max " + ((this.v == 0) ? "" : (numberToStr(this.v) + " + ")) + mapToStr(this.c);
                 for (let v in this.b) {
-                    s += "\n" + v + " = " + this.b[v] + " + " + mapToStr(this.A[v]);
+                    s += "\n" + v + " = " + numberToStr(this.b[v]) + " + " + mapToStr(this.A[v]);
                 }
                 s = s.replaceAll(" + -", " - ");
-                s += "\n\n" + "variables in the base: " + [...T.varsB] + "\n" + "variables outside the base: " + [...T.varsN] + "\n\n    ---------------    \n";
+                // s += "\n\n" + "variables in the base: " + [...T.varsB] + "\n" + "variables outside the base: " + [...T.varsN] + "\n\n    ---------------    \n";
                 return s;
             }
+
+
+            toHTML() {
+                let s = "<div class='tableau'><span class='max'>max</span>" + "<span class='obj'>" + numberToStr(this.v) + "</span> + "
+                    + mapToHTML(this.c) + "<br/>";
+                for (let v in this.b) {
+                    s += "\n" + `<span class="basicvariable">${v}</span>` + " = " + numberToStr(this.b[v]) + " + " + mapToHTML(this.A[v]) + "<br/>";
+                }
+                s = s.replaceAll(" + -", " - ");
+                return s + "</div>"
+            }
+
+            get hasBasicSolution() {
+                for (const v in this.b) {
+                    if (this.b[v] < 0)
+                        return false;
+                }
+                return true;
+
+            }
+        }
+
+
+
+        function numberToStr(x) {
+            return +parseFloat(x).toFixed(2);
         }
 
         /**
@@ -90,7 +150,22 @@
             const A = [];
             for (let v in c) if (c[v] != 0) {
                 A.push((
-                    (c[v] == 1) ? "" : (c[v] == -1) ? "-" : c[v]) + v);
+                    (c[v] == 1) ? "" : (c[v] == -1) ? "-" : numberToStr(c[v])) + v);
+            }
+            return A.join(" + ");
+        }
+
+
+        /**
+         * @parameter c an object for instance c = {x:1, y:-3, z:2} 
+         * @returns a string representing the coefficients c
+         * @example returns x + -3y + 2z if c = {x:1, y:-3, z:2} 
+         * **/
+        function mapToHTML(c) {
+            const A = [];
+            for (let v in c) if (c[v] != 0) {
+                A.push((
+                    (c[v] == 1) ? "" : (c[v] == -1) ? "-" : numberToStr(c[v])) + `<span class="nonbasicvariable">${v}</span>`);
             }
             return A.join(" + ");
         }
@@ -185,8 +260,8 @@
                 const bc = parseFloatStrong(D[1].trim());
                 if (bc == undefined)
                     throw `The value in 'linear function <= value' should be a number. Sorry but ${D[1]} is not a number`;
-                A["z" + i] = coeffs;
-                b["z" + i] = bc;
+                A[SLACKVARIABLEPREFIX + i] = coeffs;
+                b[SLACKVARIABLEPREFIX + i] = bc;
                 i++;
             }
 
@@ -206,19 +281,26 @@
         }
 
         let T;
-
+        let html = "";
         function init() {
-            output.value = "";
+            html = "";
             const initialTableau = strToTableau(input.value);
             T = initialTableau;
-            output.value = initialTableau.toString();
+            if (!T.hasBasicSolution) {
+                throw "the initial tableau has no basic solution";
+            }
+            html = initialTableau.toHTML();
         }
 
 
         function step() {
-            const { j, i } = biggestCoeffRule(T);//blandRule(T);
+            const pivotFunction = document.getElementById("bland").checked ? blandRule : biggestCoeffRule;
+            const { j, i } = pivotFunction(T);
             T = applyPivot(T, j, i);
-            output.value = output.value + "\n\n" + j + " is entering in the base \n" + i + " is leaving the base\n\n" + T.toString();
+            //   output.value = output.value + "\n\n" + j + " is entering in the base \n" + i + " is leaving the base\n\n" + T.toString();
+            html = html + `<div class="pivot"><span class="basicvariable">${j}</span> ← <span class="nonbasicvariable">${j}</span><br/>` +
+                `<span class="basicvariable">${i}</span> → <span class="nonbasicvariable">${i}</span><br/></div>`
+                + T.toHTML();
         }
 
 
@@ -234,11 +316,49 @@
             try {
                 for (let i = 0; i < 100; i++)
                     step();
+                output.innerHTML = html;
+
             }
             catch (e) {
-                output.value = output.value + "\n\n" + e;
+                html = html + "\n\n" + e;
+                output.innerHTML = html;
             }
         }
+
+
+
+        function chooseEnteringVariableBiggestCoeff(T) {
+            let j = undefined;
+            let max = 0;
+            for (let v in T.c)
+                if (T.c[v] > max) {
+                    j = v;
+                    max = T.c[v];
+                }
+
+            return j;
+        }
+
+
+        function chooseEnteringVariableSmallestSubscript(T) {
+            for (let v of Object.keys(T.c).sort()) {
+                if (T.c[v] > 0)
+                    return v;
+            }
+            return undefined;
+        }
+
+        function chooseLeavingVariableSmallestSubscript(T, j) {
+            let min = Infinity;
+            let vI = undefined
+            for (let i in T.A)
+                if (T.A[i][j] < 0 && -T.b[i] / T.A[i][j] < min) {
+                    vI = i;
+                    min = -T.b[i] / T.A[i][j];
+                }
+            return vI;
+        }
+
 
         /**
          * @parameter a Tableau object
@@ -246,30 +366,12 @@
          * where variableNameI and variableNameJ are the variables used to perform the pivot 
          **/
         function blandRule(T) {
-            const getJ = () => {
-                for (let v of Object.keys(T.c).sort()) {
-                    if (T.c[v] > 0)
-                        return v;
-                }
-                return undefined;
-            }
-
-            const j = getJ();
+            const j = chooseEnteringVariableSmallestSubscript(T);
             if (j == undefined)
                 throw "We found the max!";
 
-            const getI = () => {
-                let min = Infinity;
-                let vI = undefined
-                for (let i in T.A)
-                    if (T.A[i][j] < 0 && -T.b[i] / T.A[i][j] < min) {
-                        vI = i;
-                        min = -T.b[i] / T.A[i][j];
-                    }
-                return vI;
-            }
 
-            const i = getI();
+            const i = chooseLeavingVariableSmallestSubscript(T, j);
 
             if (i == undefined)
                 throw "unbounded because of variable " + j;
@@ -278,38 +380,18 @@
         }
 
 
+
+
+
         /**
          * same typing than Bland rule
          **/
         function biggestCoeffRule(T) {
-            const getJ = () => {
-                let j = undefined;
-                let max = 0;
-                for (let v in T.c)
-                    if (T.c[v] > max) {
-                        j = v;
-                        max = T.c[v];
-                    }
-
-                return j;
-            }
-
-            const j = getJ();
+            const j = chooseEnteringVariableBiggestCoeff(T);
             if (j == undefined)
                 throw "We found the max!";
 
-            const getI = () => {
-                let min = Infinity;
-                let vI = undefined
-                for (let i in T.A)
-                    if (T.A[i][j] < 0 && -T.b[i] / T.A[i][j] < min) {
-                        vI = i;
-                        min = -T.b[i] / T.A[i][j];
-                    }
-                return vI;
-            }
-
-            const i = getI();
+            const i = chooseLeavingVariableSmallestSubscript(T, j);
 
             if (i == undefined)
                 throw "unbounded because of variable " + j;
