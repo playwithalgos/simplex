@@ -1,10 +1,13 @@
-# simplex
+# Demonstration of the simplex algorithm
 
 A pedagogical tool for running the simplex algorithm.
 
+![image](https://github.com/playwithalgos/simplex/assets/43071857/1ebaaf34-3a9b-42a2-9777-6118fcdfb7c4)
+
+
 ## Features
 
-- only maximization problem in canonical form
+- simple to use. You even do not have to click on a button "Execute"!
 - input in text form for instance
    ````
    max 2x + 3y
@@ -21,3 +24,5 @@ A pedagogical tool for running the simplex algorithm.
    ````
 
   also works!
+
+- only maximization problem in canonical form
