@@ -100,7 +100,8 @@
          * @returns a object {x:1, y:-3, z:2} 
          **/
         function lineToMap(line) {
-            const lineCorrected = line.replaceAll("-", "+-");
+            const lineCorrected1 = line.replaceAll("-", "+-");
+            const lineCorrected = lineCorrected1.startsWith("+-") ? lineCorrected1.substr(1) : lineCorrected1;
             const termsStr = lineCorrected.split("+");
             const c = {};
 
