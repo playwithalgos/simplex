@@ -5,7 +5,9 @@
     Please write a linear program in canonical form:<br />
     <textarea oninput="compute()" id="input" rows="10" cols="40"></textarea>
     <input id="bland" type="checkbox" oninput="compute()"></input>
-    <label for="bland">Bland's rule</label>
+    <label for="bland"
+        title="if checked, apply Bland's rule which selects the first variable in the variable list / otherwise, selects the variable in the objective with the greatest coefficient">Bland's
+        rule </label>
     <div id="error"></div>
     <div id="output"></div>
 
@@ -305,8 +307,12 @@
 
 
         function compute() {
+
             noError();
+            output.innerHTML = "";
             try {
+                if (input.value.trim() == "")
+                    throw "write a linear program, for instance <br/> max x+y <br/> x + 2y <= 3<br> x -y <= 5";
                 init();
             }
             catch (e) {
@@ -444,4 +450,7 @@
         function showError(msg) { document.getElementById("error").innerHTML = msg; }
         function noError() { document.getElementById("error").innerHTML = ""; }
 
+
+
+        compute();
     </script>
