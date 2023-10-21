@@ -12,6 +12,13 @@
     <div id="output"></div>
 
     <style>
+        canvas {
+            top: 0px;
+            right: 0px;
+            width: 160px;
+            height: 120px;
+        }
+
         body {
             vertical-align: top;
             background-color: black;
@@ -48,6 +55,7 @@
             color: lightskyblue;
         }
 
+
         .pivot {
             margin: 8px;
             padding-left: 16px;
@@ -58,12 +66,14 @@
             padding: 2px;
         }
 
+
         .tableau {
             margin: 8px;
             padding: 8px;
             background-color: rgb(60, 60, 60);
             display: inline-block;
             border-radius: 8px;
+            vertical-align: top;
         }
     </style>
 
@@ -117,14 +127,19 @@
             }
 
 
-            toHTML() {
+            evalVars(vars) { return vars.map((v) => this.b[v] ? this.b[v] : 0); }
+
+            toHTMLElement() {
+                const el = document.createElement("div");
                 let s = "<div class='tableau'><span class='max'>max</span>" + "<span class='obj'>" + numberToStr(this.v) + "</span> + "
                     + mapToHTML(this.c) + "<br/>";
                 for (let v in this.b) {
                     s += "\n" + `<span class="basicvariable">${v}</span>` + " = " + numberToStr(this.b[v]) + " + " + mapToHTML(this.A[v]) + "<br/>";
                 }
                 s = s.replaceAll(" + -", " - ");
-                return s + "</div>"
+                s = s + "</div>";
+                el.innerHTML = s;
+                return el;
             }
 
             get hasBasicSolution() {
@@ -135,6 +150,10 @@
                 return true;
 
             }
+
+
+
+
         }
 
 
@@ -282,16 +301,26 @@
             return bc;
         }
 
-        let T;
-        let html = "";
+        let T = undefined;
+        let polyhedron = undefined;
+
+
+        function createHTMLElementForTableau(T) {
+            const el = T.toHTMLElement();
+            el.prepend(createCanvasPolyhedron(T));
+            return el;
+        }
         function init() {
-            html = "";
             const initialTableau = strToTableau(input.value);
             T = initialTableau;
+            polyhedron = new Polyhedron(T);
+
             if (!T.hasBasicSolution) {
                 throw "the initial tableau has no basic solution";
             }
-            html = initialTableau.toHTML();
+
+
+            output.appendChild(createHTMLElementForTableau(initialTableau));
         }
 
 
@@ -299,17 +328,122 @@
             const pivotFunction = document.getElementById("bland").checked ? blandRule : biggestCoeffRule;
             const { j, i } = pivotFunction(T);
             T = applyPivot(T, j, i);
-            //   output.value = output.value + "\n\n" + j + " is entering in the base \n" + i + " is leaving the base\n\n" + T.toString();
-            html = html + `<div class="pivot"><span class="basicvariable">${j}</span> ← <span class="nonbasicvariable">${j}</span><br/>` +
-                `<span class="basicvariable">${i}</span> → <span class="nonbasicvariable">${i}</span><br/></div>`
-                + T.toHTML();
+
+            const elPivot = document.createElement("div");
+            elPivot.innerHTML = `<div class="pivot"><span class="basicvariable">${j}</span> ← <span class="nonbasicvariable">${j}</span><br/>` +
+                `<span class="basicvariable">${i}</span> → <span class="nonbasicvariable">${i}</span><br/></div>`;
+
+            output.appendChild(elPivot);
+            output.appendChild(createHTMLElementForTableau(T));
+
         }
+
+
+        function createCanvasPolyhedron(T) {
+            const canvas = document.createElement("canvas");
+            canvas.width = WIDTH;
+            canvas.height = HEIGHT;
+            polyhedron.draw(canvas.getContext("2d"), T);
+            return canvas;
+        }
+
+
+        const WIDTH = 320;
+        const HEIGHT = 240;
+
+        class Polyhedron {
+            constructor(initialTableau) {
+                this.physicalVars = Array.from(initialTableau.varsN);
+                this.vertices = {};
+                this.edges = [];
+                this.maxValue = 0;
+                const LIMIT = 100;
+                let i = 0;
+                const L = [];
+                L.push(initialTableau);
+                while (L.length > 0) {
+                    if (i > LIMIT)
+                        return;
+                    i++;
+
+                    const T = L.pop();
+
+                    const values = T.evalVars(this.physicalVars);
+                    this.maxValue = Math.max(this.maxValue, ...values);
+
+                    if (this.vertices[T.toString()] == undefined) {
+                        this.vertices[T.toString()] = T;
+                        for (let j of Object.keys(T.c)) {
+                            for (let i of getAllLeavingVariables(T, j)) {
+                                let T2 = applyPivot(T, j, i);
+                                this.edges.push([T, T2]);
+                                L.push(T2);
+                            }
+                        }
+                    }
+                }
+
+            }
+
+
+            draw(ctx, T) {
+                const directions = [{ x: 1, y: 0 }, { x: 0, y: 1 }, { x: 0.5, y: 0.2 }]; //TODO
+                function to2D(p) {
+                    if (p[2] == undefined)
+                        p[2] = 0;
+
+                    let x = 0;
+                    let y = 0;
+
+                    for (let i = 0; i < p.length; i++) {
+                        x += p[i] * directions[i%3].x;
+                        y -= p[i] * directions[i%3].y;
+                    }
+                    return { x, y };
+                }
+
+                ctx.clearRect(0, 0, WIDTH, HEIGHT);
+                ctx.save();
+                ctx.translate(32, HEIGHT - 32);
+                const scaleFactor = 150 / this.maxValue;
+                ctx.scale(scaleFactor, scaleFactor);
+                ctx.lineWidth = 0.8 / scaleFactor;
+                ctx.strokeStyle = "white";
+                for (const [T, T2] of this.edges) {
+                    const p = T.evalVars(this.physicalVars);
+                    const p2 = T2.evalVars(this.physicalVars);
+
+                    console.log(p)
+
+                    const p2D = to2D(p);
+                    const p22D = to2D(p2);
+
+                    ctx.beginPath();
+                    ctx.moveTo(p2D.x, p2D.y);
+                    ctx.lineTo(p22D.x, p22D.y);
+                    ctx.stroke();
+                }
+
+                if (T) {
+                    const p = T.evalVars(this.physicalVars);
+                    const p2D = to2D(p);
+                    ctx.beginPath();
+                    ctx.fillStyle = "lightgreen";
+                    ctx.arc(p2D.x, p2D.y, 7 / scaleFactor, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+
+        }
+
 
 
         function compute() {
 
             noError();
             output.innerHTML = "";
+
             try {
                 if (input.value.trim() == "")
                     throw "write a linear program, for instance <br/> max x+y <br/> x + 2y <= 3<br> x -y <= 5";
@@ -320,14 +454,15 @@
                 return;
             }
             try {
-                for (let i = 0; i < 100; i++)
+                const LIMIT = 50;
+                for (let i = 0; i < LIMIT; i++)
                     step();
-                output.innerHTML = html;
 
             }
             catch (e) {
-                html = html + "\n\n" + e;
-                output.innerHTML = html;
+                const el = document.createElement("div");
+                el.innerHTML = e;
+                output.appendChild(el);
             }
         }
 
@@ -365,6 +500,22 @@
             return vI;
         }
 
+
+
+        function getAllLeavingVariables(T, j) {
+            let min = Infinity;
+            let varsLeaving = [];
+            for (let i in T.A)
+                if (T.A[i][j] < 0 && -T.b[i] / T.A[i][j] < min)
+                    min = -T.b[i] / T.A[i][j];
+
+            for (let i in T.A) {
+                if (min == -T.b[i] / T.A[i][j]) {
+                    varsLeaving.push(i);
+                }
+            }
+            return varsLeaving;
+        }
 
         /**
          * @parameter a Tableau object
