@@ -114,6 +114,9 @@
                 this.varsN = varsN;
             }
 
+            /**
+             * @returns a textual representation of the tableau
+             * */
             toString() {
                 let s = "max " + ((this.v == 0) ? "" : (numberToStr(this.v) + " + ")) + mapToStr(this.c);
                 for (let v in this.b) {
@@ -125,8 +128,15 @@
             }
 
 
+            /**
+             * @parameters an array of variable names
+             * @return an array with the values (if the variable is in the base, the value is taken from this.b[v], otherwise it is 0)
+             * */
             evalVars(vars) { return vars.map((v) => this.b[v] ? this.b[v] : 0); }
 
+            /**
+             * @returns an HTML element representing the tableau
+             * */
             toHTMLElement() {
                 const el = document.createElement("div");
                 let s = "<div class='tableau'><span class='max'>max</span>" + "<span class='obj'>" + numberToStr(this.v) + "</span> + "
@@ -140,6 +150,9 @@
                 return el;
             }
 
+            /**
+             * @returns true iff the tableau has a basic solution
+             * */
             get hasBasicSolution() {
                 for (const v in this.b) {
                     if (this.b[v] < 0)
@@ -224,7 +237,6 @@
 
                 const variableName = (variablePart.startsWith("*")) ? variablePart.substr(1).trimLeft() : variablePart;
 
-
                 if (variableName.indexOf(" ") >= 0)
                     throw "there are misplaced spaces in the term " + termStr;
 
@@ -299,56 +311,16 @@
             return bc;
         }
 
-        let T = undefined;
-        let polyhedron = undefined;
 
-
-        function createHTMLElementForTableau(T) {
-            const el = T.toHTMLElement();
-            el.prepend(createCanvasPolyhedron(T));
-            return el;
-        }
-        function init() {
-            const initialTableau = strToTableau(input.value);
-            T = initialTableau;
-            polyhedron = new Polyhedron(T);
-
-            if (!T.hasBasicSolution) {
-                throw "the initial tableau has no basic solution";
-            }
-
-
-            output.appendChild(createHTMLElementForTableau(initialTableau));
-        }
-
-
-        function step() {
-            const pivotFunction = document.getElementById("bland").checked ? blandRule : biggestCoeffRule;
-            const { j, i } = pivotFunction(T);
-            T = applyPivot(T, j, i);
-
-            const elPivot = document.createElement("div");
-            elPivot.innerHTML = `<div class="pivot"><span class="basicvariable">${j}</span> ← <span class="nonbasicvariable">${j}</span><br/>` +
-                `<span class="basicvariable">${i}</span> → <span class="nonbasicvariable">${i}</span><br/></div>`;
-
-            output.appendChild(elPivot);
-            output.appendChild(createHTMLElementForTableau(T));
-
-        }
-
-
-        function createCanvasPolyhedron(T) {
-            const canvas = document.createElement("canvas");
-            canvas.width = WIDTH;
-            canvas.height = HEIGHT;
-            polyhedron.draw(canvas.getContext("2d"), T);
-            return canvas;
-        }
 
 
         const WIDTH = 320;
         const HEIGHT = 240;
 
+
+        /**
+         * represents the polyhedron, i.e. the graph where the nodes are the tableau and edges are pivots
+         * */
         class Polyhedron {
             constructor(initialTableau) {
                 this.physicalVars = Array.from(initialTableau.varsN);
@@ -360,8 +332,7 @@
                 const L = [];
                 L.push(initialTableau);
                 while (L.length > 0) {
-                    if (i > LIMIT)
-                        return;
+                    if (i > LIMIT) return;
                     i++;
 
                     const T = L.pop();
@@ -380,15 +351,21 @@
                         }
                     }
                 }
-
             }
 
-
+            /**
+             * @parameter ctx a Canvas context
+             * @parameter T a tableau (or undefined)
+             * @description draw the polyhedron + a point for the vertex associated with T (or nothing is T == undefined)
+             * */
             draw(ctx, T) {
-                const directions = [{ x: 1, y: 0 }, { x: 0, y: 1 }, { x: 0.5, y: 0.2 }, {x:0.3, y:0.5}];
+                const directions = [{ x: 1, y: 0 }, { x: 0, y: 1 }, { x: 0.5, y: 0.2 }, { x: 0.3, y: 0.5 }];
+                /**
+                 * @parameter p an array of p.length numbers that represents a point in the space in p.length dimension
+                 * @returns a two 2D point {x, y} that is the projection of p
+                 **/
                 function to2D(p) {
-                    if (p[2] == undefined)
-                        p[2] = 0;
+                    if (p[2] == undefined) p[2] = 0;
 
                     let x = 0;
                     let y = 0;
@@ -410,9 +387,6 @@
                 for (const [T, T2] of this.edges) {
                     const p = T.evalVars(this.physicalVars);
                     const p2 = T2.evalVars(this.physicalVars);
-
-                    console.log(p)
-
                     const p2D = to2D(p);
                     const p22D = to2D(p2);
 
@@ -438,6 +412,51 @@
 
 
         function compute() {
+            let T = undefined;
+            let polyhedron = undefined;
+
+
+            function createHTMLElementForTableau(T) {
+                const el = T.toHTMLElement();
+                el.prepend(createCanvasPolyhedron(T));
+                return el;
+            }
+            function init() {
+                const initialTableau = strToTableau(input.value);
+                T = initialTableau;
+                polyhedron = new Polyhedron(T);
+
+                if (!T.hasBasicSolution) {
+                    throw "the initial tableau has no basic solution";
+                }
+
+
+                output.appendChild(createHTMLElementForTableau(initialTableau));
+            }
+
+
+            function step() {
+                const pivotFunction = document.getElementById("bland").checked ? blandRule : biggestCoeffRule;
+                const { j, i } = pivotFunction(T);
+                T = applyPivot(T, j, i);
+
+                const elPivot = document.createElement("div");
+                elPivot.innerHTML = `<div class="pivot"><span class="basicvariable">${j}</span> ← <span class="nonbasicvariable">${j}</span><br/>` +
+                    `<span class="basicvariable">${i}</span> → <span class="nonbasicvariable">${i}</span><br/></div>`;
+
+                output.appendChild(elPivot);
+                output.appendChild(createHTMLElementForTableau(T));
+
+            }
+
+
+            function createCanvasPolyhedron(T) {
+                const canvas = document.createElement("canvas");
+                canvas.width = WIDTH;
+                canvas.height = HEIGHT;
+                polyhedron.draw(canvas.getContext("2d"), T);
+                return canvas;
+            }
 
             noError();
             output.innerHTML = "";
@@ -474,27 +493,23 @@
                     j = v;
                     max = T.c[v];
                 }
-
             return j;
         }
 
 
         function chooseEnteringVariableSmallestSubscript(T) {
-            for (let v of Object.keys(T.c).sort()) {
-                if (T.c[v] > 0)
-                    return v;
-            }
+            for (let v of Object.keys(T.c).sort()) if (T.c[v] > 0)
+                return v;
             return undefined;
         }
 
         function chooseLeavingVariableSmallestSubscript(T, j) {
             let min = Infinity;
             let vI = undefined
-            for (let i in T.A)
-                if (T.A[i][j] < 0 && -T.b[i] / T.A[i][j] < min) {
-                    vI = i;
-                    min = -T.b[i] / T.A[i][j];
-                }
+            for (let i in T.A) if (T.A[i][j] < 0 && -T.b[i] / T.A[i][j] < min) {
+                vI = i;
+                min = -T.b[i] / T.A[i][j];
+            }
             return vI;
         }
 
@@ -503,15 +518,12 @@
         function getAllLeavingVariables(T, j) {
             let min = Infinity;
             let varsLeaving = [];
-            for (let i in T.A)
-                if (T.A[i][j] < 0 && -T.b[i] / T.A[i][j] < min)
-                    min = -T.b[i] / T.A[i][j];
+            for (let i in T.A) if (T.A[i][j] < 0 && -T.b[i] / T.A[i][j] < min)
+                min = -T.b[i] / T.A[i][j];
 
-            for (let i in T.A) {
-                if (min == -T.b[i] / T.A[i][j]) {
-                    varsLeaving.push(i);
-                }
-            }
+            for (let i in T.A) if (min == -T.b[i] / T.A[i][j])
+                varsLeaving.push(i);
+
             return varsLeaving;
         }
 
@@ -522,19 +534,13 @@
          **/
         function blandRule(T) {
             const j = chooseEnteringVariableSmallestSubscript(T);
-            if (j == undefined)
-                throw "We found the max!";
-
+            if (j == undefined) throw "We found the max!";
 
             const i = chooseLeavingVariableSmallestSubscript(T, j);
-
-            if (i == undefined)
-                throw "unbounded because of variable " + j;
+            if (i == undefined) throw "unbounded because of variable " + j;
 
             return { i, j };
         }
-
-
 
 
 
@@ -543,13 +549,11 @@
          **/
         function biggestCoeffRule(T) {
             const j = chooseEnteringVariableBiggestCoeff(T);
-            if (j == undefined)
-                throw "We found the max!";
+            if (j == undefined) throw "We found the max!";
 
             const i = chooseLeavingVariableSmallestSubscript(T, j);
 
-            if (i == undefined)
-                throw "unbounded because of variable " + j;
+            if (i == undefined) throw "unbounded because of variable " + j;
 
             return { i, j };
         }
@@ -598,8 +602,6 @@
 
         function showError(msg) { document.getElementById("error").innerHTML = msg; }
         function noError() { document.getElementById("error").innerHTML = ""; }
-
-
 
         compute();
     </script>
