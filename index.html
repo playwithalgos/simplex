@@ -506,7 +506,8 @@
         function chooseLeavingVariableSmallestSubscript(T, j) {
             let min = Infinity;
             let vI = undefined
-            for (let i in T.A) if (T.A[i][j] < 0 && -T.b[i] / T.A[i][j] < min) {
+            // in order to have the smallest index, we reverse the array of keys
+            for (let i of Object.keys(T.A).reverse()) if (T.A[i][j] < 0 && -T.b[i] / T.A[i][j] < min) {
                 vI = i;
                 min = -T.b[i] / T.A[i][j];
             }
